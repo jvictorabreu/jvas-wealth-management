@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com;">
+  <title>JVAS Wealth Management | Private Banking &amp; Asset Allocation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="values-hidden">
+
+  <!-- ====================================================================
+       GATEKEEPER: TELA DE BLOQUEIO INSTITUCIONAL
+       ==================================================================== -->
+  <div id="lock-screen">
+    <div class="lock-card">
+      <div class="lock-brand">
+        <div class="lock-brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-4 4"/>
+          </svg>
+        </div>
+        <div class="lock-brand-text">
+          <span class="title">JVAS11</span>
+          <span class="subtitle">Wealth Management &bull; Private Banking</span>
+        </div>
+      </div>
+
+      <p class="lock-desc">
+        Ambiente protegido por autenticação criptográfica de sessão. Insira sua <strong>Chave de Acesso Institucional</strong> para sincronizar os ativos com o Google Sheets.
+      </p>
+
+      <form class="lock-form" onsubmit="handleUnlockSubmit(event)" autocomplete="off">
+        <div class="lock-input-group">
+          <label for="auth-token-input">Chave de Acesso (API_TOKEN)</label>
+          <div class="lock-password-wrap">
+            <input
+              type="password"
+              id="auth-token-input"
+              placeholder="Insira sua chave secreta de acesso..."
+              autocomplete="off"
+              spellcheck="false"
+              required
+            >
+            <button type="button" class="lock-eye-btn" id="auth-eye-btn" onclick="toggleAuthPasswordVisibility()" title="Mostrar/Ocultar Chave">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <label class="lock-remember">
+          <input type="checkbox" id="auth-remember-check" checked>
+          <span>Manter conectado neste dispositivo</span>
+        </label>
+
+        <div id="auth-error-msg" class="lock-error"></div>
+
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary lock-submit-btn">
+          Desbloquear Plataforma
+        </button>
+      </form>
+
+      <div class="lock-footer">
+        <span>Auto-Lock: 15 min inativo</span>
+        <span>Zero-Cache Security</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       TELA DE CARREGAMENTO / SINCRONIZAÇÃO
+       ==================================================================== -->
+  <div id="loading-screen">
+    <span class="loader"></span>
+    <h2 style="font-size:16px; margin-bottom:4px;">Sincronizando com Google Sheets...</h2>
+    <p style="font-size:12px; color:var(--text-muted);" id="loading-msg">Buscando cotações e posições em tempo real.</p>
+  </div>
+
+  <!-- ====================================================================
+       APLICAÇÃO PRINCIPAL (OCULTA ATÉ AUTENTICAÇÃO)
+       ==================================================================== -->
+  <div class="app-container" id="app-container" style="display: none;">
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+    <!-- SIDEBAR DE NAVEGAÇÃO -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-4 4"/>
+        </svg>
+        <div class="sidebar-brand-text">
+          <span class="title">JVAS</span>
+          <span class="subtitle">Wealth Management</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-menu sidebar-nav">
+        <div class="menu-item nav-item active" id="menu-executiva" data-rail-tooltip="Visão Executiva" tabindex="0" role="button" onclick="switchPage('executiva')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          <span class="menu-label">Visão Executiva</span>
+        </div>
+        <div class="menu-item nav-item" id="menu-consolidada" data-rail-tooltip="Carteira Consolidada" tabindex="0" role="button" onclick="switchPage('consolidada')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <span class="menu-label">Carteira Consolidada</span>
+        </div>
+        <div class="menu-item nav-item" id="menu-aportes" data-rail-tooltip="Sugestão de Aporte" tabindex="0" role="button" onclick="switchPage('aportes')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="menu-label">Sugestão de Aporte</span>
+        </div>
+        <div class="menu-item nav-item" id="menu-historico" data-rail-tooltip="Histórico de Aportes" tabindex="0" role="button" onclick="switchPage('historico')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="menu-label">Histórico de Aportes</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span>JVAS11 &bull; v2.0</span>
+        <span>Private Suite</span>
+      </div>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="main-content">
+
+      <!-- TOPBAR GLOBAL -->
+      <header class="topbar">
+        <!-- ESQUERDA: Toggle da Sidebar + Breadcrumb + Sync -->
+        <div class="topbar-left">
+          <button class="icon-btn-menu" onclick="toggleSidebar()" data-tooltip="Alternar Menu Lateral" aria-label="Alternar Menu Lateral">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          </button>
+
+          <div class="topbar-crumb" aria-label="Página atual">
+            <span class="crumb-root">JVAS</span>
+            <span class="crumb-sep">/</span>
+            <strong id="topbar-page-title">Visão Executiva</strong>
+          </div>
+
+          <div id="sync-status" class="sync-status online" title="Status de sincronização com o Google Sheets">
+            <span class="sync-dot"></span>
+            <span id="sync-text">Salvo no Sheets</span>
+          </div>
+        </div>
+
+        <!-- CENTRO: Glass pills (USD/BRL + Termômetro de Metas) -->
+        <div class="topbar-center">
+          <div class="badge-dolar" onclick="openDolarModal()" title="Simular Câmbio Localmente (Não altera planilha)">
+            <span class="pill-label">USD/BRL</span>
+            <strong id="dolar-display" class="tabular-nums">••,••</strong>
+            <span id="dolar-sim-badge" class="sim-pill">Simulado</span>
+            <button type="button" id="dolar-reset-inline" class="dolar-reset-btn" onclick="resetOfficialDolar(event)" title="Restaurar Câmbio Oficial">↺ Oficial</button>
+          </div>
+
+          <div id="badge-metas" class="badge-metas meta-ok">
+            <span>Metas: <strong class="tabular-nums">100,0%</strong></span>
+          </div>
+        </div>
+
+        <!-- DIREITA: Ações principais + Icon Buttons -->
+        <div class="topbar-right">
+          <div class="topbar-actions">
+            <button class="btn" onclick="openAporteModal()" title="Registrar Ordem de Compra Executada" aria-label="Registrar Compra">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span class="btn-label">Registrar Compra</span>
+            </button>
+            <button class="btn btn-primary" onclick="openAddModal()" title="Cadastrar Novo Ativo" aria-label="Novo Ativo">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span class="btn-label">Novo Ativo</span>
+            </button>
+          </div>
+
+          <div class="topbar-tools">
+            <button class="icon-btn" onclick="toggleVisibility()" id="visibility-btn" data-tooltip="Alternar Visibilidade" aria-label="Alternar Modo Privacidade">
+              <!-- Preenchido via JS -->
+            </button>
+            <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" data-tooltip="Alternar Tema" aria-label="Alternar Tema Dark/Light">
+              <!-- Preenchido via JS -->
+            </button>
+            <button class="icon-btn btn-teal" onclick="openRendaFixaModal()" data-tooltip="Atualizar Renda Fixa" aria-label="Atualizar Renda Fixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+            <button class="icon-btn btn-lock" onclick="lockSession('Sessão bloqueada manualmente pelo usuário.')" data-tooltip="Bloquear Sessão" aria-label="Bloquear Sessão">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- ==================================================================
+           TELA 1: VISÃO EXECUTIVA
+           ================================================================== -->
+      <section id="page-executiva" class="page-view">
+        <div class="page-header">
+          <div>
+            <h1>Dashboard Executivo</h1>
+            <p>Consolidação patrimonial multicâmbio, saúde estratégica e matriz macro de alocação.</p>
+          </div>
+        </div>
+
+        <!-- Grid Principal de 8 KPIs Executivos (2 linhas harmônicas) -->
+        <div class="summary-exec-grid" id="summary-cards-executiva"></div>
+
+        <!-- Card Índice de Qualidade da Carteira (IQC - 0 a 100 pts) -->
+        <div class="card iqc-section-card">
+          <div class="card-header">
+            <span class="card-label">Índice de Qualidade da Carteira (IQC)</span>
+          </div>
+          <div class="iqc-container">
+
+            <!-- Coluna 1: Gauge Semicircular SVG -->
+            <div class="iqc-col iqc-col-gauge">
+              <div class="iqc-gauge-wrapper">
+                <svg viewBox="0 0 200 116" width="100%" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="iqc-gauge-grad" gradientUnits="userSpaceOnUse" x1="20" y1="100" x2="180" y2="100">
+                      <stop id="iqc-grad-start" offset="0%" style="stop-color: var(--green)"></stop>
+                      <stop id="iqc-grad-end" offset="100%" style="stop-color: var(--green)"></stop>
+                    </linearGradient>
+                  </defs>
+                  <path class="iqc-gauge-track" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke-width="14" stroke-linecap="round"></path>
+                  <path id="iqc-gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#iqc-gauge-grad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"></path>
+                </svg>
+                <div class="iqc-gauge-score">
+                  <div class="num tabular-nums" id="iqc-score-val">0</div>
+                  <div class="sub">/ 100 PTS</div>
+                </div>
+              </div>
+              <div class="iqc-classification" id="iqc-class-label">Calculando...</div>
+            </div>
+
+            <!-- Coluna 2: Os 4 Pilares Analíticos com Tooltips -->
+            <div class="iqc-col iqc-col-pillars">
+              <!-- Pilar 1 -->
+              <div class="iqc-bd-row">
+                <div class="iqc-bd-header">
+                  <span class="iqc-bd-title">Aderência à Estratégia (35%)
+                    <span class="tooltip-container" tabindex="0">
+                      <span class="info-icon">i</span>
+                      <div class="tooltip-text">
+                        <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 5px;">
+                          <span class="highlight">Peso no IQC: 35%</span>
+                        </div>
+                        <div><strong>Fórmula:</strong> <code>clamp(100 - (&Sigma;|pesoReal - pesoMeta| / 2), 0, 100)</code></div>
+                        <div>Mede o alinhamento entre a alocação atual e os pesos-alvo definidos na estratégia.</div>
+                      </div>
+                    </span>
+                  </span>
+                  <span class="iqc-bd-val tabular-nums"><span id="iqc-val-aderencia">0</span> / 100</span>
+                </div>
+                <div class="iqc-bar-bg"><div class="iqc-bar-fill" id="iqc-bar-aderencia" style="background:var(--blue)"></div></div>
+              </div>
+
+              <!-- Pilar 2 -->
+              <div class="iqc-bd-row">
+                <div class="iqc-bd-header">
+                  <span class="iqc-bd-title">Diversificação Global (30%)
+                    <span class="tooltip-container" tabindex="0">
+                      <span class="info-icon">i</span>
+                      <div class="tooltip-text">
+                        <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 5px;">
+                          <span class="highlight" style="color:var(--teal)">Peso no IQC: 30%</span>
+                        </div>
+                        <div><strong>Média de 4 Sub-notas (0–100):</strong></div>
+                        <div>&bull; Setores: 12 setores (ETFs bonificam até +4 setores pela diversificação intrínseca).</div>
+                        <div>&bull; Classes: 5 classes distintas.</div>
+                        <div>&bull; Blocos: 4 blocos distintos.</div>
+                        <div>&bull; Volume: 20 ativos efetivos (ETFs bonificam até +10 ativos).</div>
+                      </div>
+                    </span>
+                  </span>
+                  <span class="iqc-bd-val tabular-nums"><span id="iqc-val-div">0</span> / 100</span>
+                </div>
+                <div class="iqc-bar-bg"><div class="iqc-bar-fill" id="iqc-bar-div" style="background:var(--teal)"></div></div>
+              </div>
+
+              <!-- Pilar 3 -->
+              <div class="iqc-bd-row">
+                <div class="iqc-bd-header">
+                  <span class="iqc-bd-title">Concentração de Risco (20%)
+                    <span class="tooltip-container" tabindex="0">
+                      <span class="info-icon">i</span>
+                      <div class="tooltip-text">
+                        <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 5px;">
+                          <span class="highlight" style="color:var(--yellow)">Peso no IQC: 20%</span>
+                        </div>
+                        <div><strong>Ativos Individuais de Risco (70% do pilar):</strong> Penaliza se Top 1 &gt; 8%, Top 5 &gt; 30% ou Top 10 &gt; 55%.</div>
+                        <div><strong>ETFs Individuais (30% do pilar):</strong> Penaliza apenas se um único ETF exceder 25% do patrimônio.</div>
+                        <div><em>Nota: Renda Fixa (reserva CDI) não sofre penalidade de risco de ruína.</em></div>
+                      </div>
+                    </span>
+                  </span>
+                  <span class="iqc-bd-val tabular-nums"><span id="iqc-val-conc">0</span> / 100</span>
+                </div>
+                <div class="iqc-bar-bg"><div class="iqc-bar-fill" id="iqc-bar-conc" style="background:var(--yellow)"></div></div>
+              </div>
+
+              <!-- Pilar 4 -->
+              <div class="iqc-bd-row">
+                <div class="iqc-bd-header">
+                  <span class="iqc-bd-title">Exposição Internacional (15%)
+                    <span class="tooltip-container" tabindex="0">
+                      <span class="info-icon">i</span>
+                      <div class="tooltip-text">
+                        <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 5px;">
+                          <span class="highlight" style="color:var(--purple)">Peso no IQC: 15%</span>
+                        </div>
+                        <div><strong>Escala Progressiva Linear (% Internacional):</strong></div>
+                        <div>0% &rarr; 0 pts | 15% &rarr; 30 pts | 30% &rarr; 60 pts | 43% &rarr; 85 pts | &ge;55% &rarr; 100 pts.</div>
+                      </div>
+                    </span>
+                  </span>
+                  <span class="iqc-bd-val tabular-nums"><span id="iqc-val-exp">0</span> / 100</span>
+                </div>
+                <div class="iqc-bar-bg"><div class="iqc-bar-fill" id="iqc-bar-exp" style="background:var(--purple)"></div></div>
+              </div>
+            </div>
+
+            <!-- Coluna 3: Diagnóstico Automático (Pontos Fortes e Oportunidades) -->
+            <div class="iqc-col iqc-col-insights">
+              <div class="iqc-insight-box">
+                <div class="iqc-insight-title" style="color:var(--green);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <span>Pontos Fortes</span>
+                </div>
+                <ul class="iqc-insight-list" id="iqc-list-strengths"></ul>
+              </div>
+              <div class="iqc-insight-box">
+                <div class="iqc-insight-title" style="color:var(--yellow);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span>Oportunidades de Melhoria</span>
+                </div>
+                <ul class="iqc-insight-list" id="iqc-list-improvements"></ul>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Alocação Patrimonial e Matriz de Rebalanceamento Macro -->
+        <div class="macro-grid">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-label">Exposição por Bloco (Atual vs. Meta &amp; Gap)</span>
+            </div>
+            <div id="distribution-bloco"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-label">Alocação por Classe de Ativo</span>
+            </div>
+            <div id="distribution-tipo"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TELA 2: CARTEIRA CONSOLIDADA
+           ================================================================== -->
+      <section id="page-consolidada" class="page-view" style="display: none;">
+        <div class="page-header">
+          <div>
+            <h1>Carteira Consolidada de Ativos</h1>
+            <p>Gestão tática de posições, filtros multi-critério e recomendações em tempo real.</p>
+          </div>
+        </div>
+
+        <!-- 5 Cards de Resumo Dinâmicos -->
+        <div class="summary" id="summary-cards-consolidada"></div>
+
+        <!-- Barra de Filtros Avançada -->
+        <div class="filters">
+          <div class="filter-group">
+            <span class="filter-label">Bloco</span>
+            <select id="filter-bloco" class="filter-select" onchange="renderTable()">
+              <option value="todos">Todos</option>
+              <option value="BR">BR</option>
+              <option value="Internacional">Internacional</option>
+              <option value="FII">FII</option>
+              <option value="BDR">BDR</option>
+              <option value="ETF">ETF</option>
+              <option value="Renda Fixa">Renda Fixa</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Classe</span>
+            <select id="filter-tipo" class="filter-select" onchange="renderTable()">
+              <option value="todos">Todas</option>
+              <option value="acao">Ação</option>
+              <option value="stock">Stock</option>
+              <option value="etf">ETF</option>
+              <option value="fii">FII</option>
+              <option value="bdr">BDR</option>
+              <option value="renda_fixa">Renda Fixa</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Status</span>
+            <select id="filter-acao" class="filter-select" onchange="renderTable()">
+              <option value="todos">Todos</option>
+              <option value="aportar">Aportar</option>
+              <option value="não aportar">Não Aportar</option>
+              <option value="manter">Manter</option>
+              <option value="vender">Vender / Zerar</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Posição</span>
+            <select id="filter-posicao" class="filter-select" onchange="renderTable()">
+              <option value="todos">Todos</option>
+              <option value="carteira">Em Carteira (Qtd &gt; 0)</option>
+              <option value="radar">Radar / Planejados (Qtd = 0)</option>
+              <option value="fora_meta">Fora da Meta (Meta = 0% e Qtd &gt; 0)</option>
+            </select>
+          </div>
+
+          <div class="spacer"></div>
+
+          <div class="search-box">
+            <span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="text" id="search-input" placeholder="Buscar ticker, empresa ou setor..." oninput="renderTable()">
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TELA 3: SUGESTÃO INTELIGENTE DE APORTE
+           ================================================================== -->
+      <section id="page-aportes" class="page-view" style="display: none;">
+        <div class="page-header">
+          <div>
+            <h1>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              <span>Sugestão Inteligente de Aporte</span>
+            </h1>
+            <p>Alocação ótima via motor multicritério com simulação de impacto no IQC e execução rápida.</p>
+          </div>
+        </div>
+
+        <div class="sugestao-container">
+          <div class="sug-toolbar">
+            <div class="sug-field">
+              <label for="sim-currency">Moeda do Aporte</label>
+              <select id="sim-currency" onchange="renderAporteSuggestions()">
+                <option value="BRL">R$ (BRL)</option>
+                <option value="USD">US$ (USD)</option>
+              </select>
+            </div>
+
+            <div class="sug-field">
+              <label for="sim-value">Valor do Aporte</label>
+              <input
+                type="number"
+                id="sim-value"
+                class="tabular-nums"
+                placeholder="Ex: 5000"
+                value="5000"
+                min="1"
+                step="100"
+                onkeyup="if(event.key === 'Enter') renderAporteSuggestions()"
+              >
+            </div>
+
+            <div class="sug-field">
+              <label for="sim-max">Máx. de Ativos</label>
+              <input
+                type="number"
+                id="sim-max"
+                class="tabular-nums"
+                value="3"
+                min="1"
+                max="10"
+                onchange="renderAporteSuggestions()"
+              >
+            </div>
+
+            <div class="sug-field">
+              <label for="sim-bloco">Filtro de Bloco</label>
+              <select id="sim-bloco" onchange="renderAporteSuggestions()">
+                <option value="todos">Todos os Blocos</option>
+                <option value="BR">Nacional (BR)</option>
+                <option value="Internacional">Internacional</option>
+                <option value="FII">Fundos Imob. (FII)</option>
+                <option value="BDR">BDR</option>
+                <option value="ETF">ETF</option>
+                <option value="Renda Fixa">Renda Fixa</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary sug-calc-btn" onclick="renderAporteSuggestions()">
+              Calcular Alocação
+            </button>
+          </div>
+
+          <div id="sugestoes-ranking-lista" style="display: flex; flex-direction: column; gap: 14px;"></div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TELA 4: HISTÓRICO DE APORTES
+           ================================================================== -->
+      <section id="page-historico" class="page-view" style="display: none;">
+        <div class="page-header">
+          <div>
+            <h1>Histórico de Aportes e Operações</h1>
+            <p>Registro cronológico auditável de todas as compras executadas na carteira.</p>
+          </div>
+        </div>
+
+        <!-- 4 KPIs do Histórico -->
+        <div class="summary" id="summary-cards-historico"></div>
+
+        <!-- Filtros do Histórico -->
+        <div class="filters">
+          <div class="filter-group">
+            <span class="filter-label">Bloco / Moeda</span>
+            <select id="hist-filter-bloco" class="filter-select" onchange="renderHistorico()">
+              <option value="todos">Todos os Registros</option>
+              <option value="BRL">Apenas Moeda R$ (BRL)</option>
+              <option value="USD">Apenas Moeda US$ (USD)</option>
+              <option value="BR">Bloco: BR</option>
+              <option value="Internacional">Bloco: Internacional</option>
+              <option value="FII">Bloco: FII</option>
+              <option value="BDR">Bloco: BDR</option>
+              <option value="ETF">Bloco: ETF</option>
+              <option value="Renda Fixa">Bloco: Renda Fixa</option>
+            </select>
+          </div>
+
+          <div class="spacer"></div>
+
+          <div class="search-box">
+            <span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="text" id="hist-search" placeholder="Filtrar por ticker ou empresa..." oninput="renderHistorico()">
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table style="min-width: 820px;">
+            <thead>
+              <tr>
+                <th class="sticky-col">Ticker</th>
+                <th>Data / Hora</th>
+                <th>Empresa</th>
+                <th>Bloco</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Preço Pago</th>
+                <th class="right">Financeiro Total</th>
+              </tr>
+            </thead>
+            <tbody id="historico-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 1: NOVO / EDITAR ATIVO
+       ==================================================================== -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h2 id="modal-title">Propriedades do Ativo</h2>
+      <div class="modal-grid-2">
+        <div class="modal-field">
+          <label for="m-ticker">Ticker</label>
+          <input id="m-ticker" type="text" placeholder="Ex: ITUB4">
+        </div>
+        <div class="modal-field">
+          <label for="m-empresa">Empresa / Emissor</label>
+          <input id="m-empresa" type="text" placeholder="Nome da instituição">
+        </div>
+        <div class="modal-field">
+          <label for="m-setor">Setor</label>
+          <input id="m-setor" type="text" placeholder="Ex: Financeiro">
+        </div>
+        <div class="modal-field">
+          <label for="m-tipo">Classe</label>
+          <select id="m-tipo">
+            <option value="acao">Ação (acao)</option>
+            <option value="fii">FII (fii)</option>
+            <option value="etf">ETF (etf)</option>
+            <option value="stock">Stock (stock)</option>
+            <option value="bdr">BDR (bdr)</option>
+            <option value="renda_fixa">Renda Fixa (renda_fixa)</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="m-bloco">Bloco Estratégico</label>
+          <select id="m-bloco">
+            <option value="BR">BR</option>
+            <option value="Internacional">Internacional</option>
+            <option value="FII">FII</option>
+            <option value="BDR">BDR</option>
+            <option value="ETF">ETF</option>
+            <option value="Renda Fixa">Renda Fixa</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="m-qtd">Posição (Qtd)</label>
+          <input id="m-qtd" class="tabular-nums" type="number" step="any" value="0">
+        </div>
+        <div class="modal-field">
+          <label for="m-pm">Custo Médio Unitário</label>
+          <input id="m-pm" class="tabular-nums" type="number" step="0.01" value="0">
+        </div>
+        <div class="modal-field">
+          <label for="m-peso">Meta (%)</label>
+          <input id="m-peso" class="tabular-nums" type="number" step="0.01" value="0" oninput="updateModalMetaPreview()">
+        </div>
+        <div class="modal-field">
+          <label for="m-fundamentos">Fundamentos</label>
+          <select id="m-fundamentos">
+            <option value="positivo">Positivo</option>
+            <option value="neutro">Neutro</option>
+            <option value="estrutural">Neg. Estrutural</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="m-acao">Sinal / Recomendação</label>
+          <select id="m-acao">
+            <option value="aportar">Aportar</option>
+            <option value="não aportar">Não Aportar</option>
+            <option value="manter">Manter</option>
+            <option value="vender">Vender</option>
+            <option value="zerar">Zerar</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Rodapé dinâmico com soma das metas em tempo real -->
+      <div id="modal-meta-preview" class="modal-meta-footer tabular-nums">
+        Soma das Metas da Carteira após salvar: <strong>100,0%</strong>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger" id="modal-delete-btn" style="display:none; margin-right:auto;" onclick="deleteAsset()">Remover Ativo</button>
+        <button type="button" class="btn" onclick="closeModal('modal')">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="saveModal()">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 2: REGISTRAR COMPRA EXECUTADA
+       ==================================================================== -->
+  <div class="modal-overlay" id="modal-aporte">
+    <div class="modal modal-sm">
+      <h2>Registrar Compra Executada</h2>
+
+      <div class="modal-field">
+        <label for="aporte-asset">Ativo Adquirido</label>
+        <select id="aporte-asset" onchange="handleAporteAssetChange()"></select>
+      </div>
+
+      <div id="aporte-inputs-grid" class="modal-grid-2">
+        <div class="modal-field" id="field-aporte-qtd">
+          <label for="aporte-qtd">Quantidade Adquirida</label>
+          <input id="aporte-qtd" class="tabular-nums" type="number" value="1" min="0.0001" step="any" oninput="calcTotalAporte()">
+        </div>
+        <div class="modal-field">
+          <label id="label-aporte-preco" for="aporte-preco">Preço Pago Unitário</label>
+          <input id="aporte-preco" class="tabular-nums" type="number" step="0.01" value="0" oninput="calcTotalAporte()">
+        </div>
+      </div>
+
+      <div class="modal-total-box">
+        <label>Volume Financeiro da Operação</label>
+        <div id="aporte-total-display" class="modal-total-value tabular-nums">R$ 0,00</div>
+        <div id="aporte-pm-projected" class="modal-total-sub"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal('modal-aporte')">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="executarAporte()">Confirmar Compra</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 3: ATUALIZAR SALDO DE RENDA FIXA
+       ==================================================================== -->
+  <div class="modal-overlay" id="modal-rf">
+    <div class="modal modal-sm">
+      <h2>Atualizar Saldo de Renda Fixa</h2>
+
+      <div class="modal-field">
+        <label for="rf-asset-select">Ativo de Renda Fixa / Liquidez</label>
+        <select id="rf-asset-select" onchange="handleRFAssetChange()"></select>
+      </div>
+
+      <div id="rf-current-summary" class="modal-info-card"></div>
+
+      <div class="modal-grid-2">
+        <div class="modal-field">
+          <label for="rf-novo-saldo">Novo Saldo Atualizado (R$)</label>
+          <input id="rf-novo-saldo" class="tabular-nums" type="number" step="0.01" value="0" oninput="calcRFPreview()">
+        </div>
+        <div class="modal-field">
+          <label for="rf-novo-custo">Custo Total Aportado (R$)</label>
+          <input id="rf-novo-custo" class="tabular-nums" type="number" step="0.01" value="0" oninput="calcRFPreview()">
+        </div>
+      </div>
+
+      <div id="rf-projected-yield" class="modal-meta-footer tabular-nums"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal('modal-rf')">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="salvarRendaFixaModal()">Salvar Saldo RF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 4: SIMULAÇÃO LOCAL DE CÂMBIO USD/BRL
+       ==================================================================== -->
+  <div class="modal-overlay" id="modal-dolar">
+    <div class="modal modal-xs">
+      <h2>Simulador Local de Câmbio (USD/BRL)</h2>
+      <p class="modal-desc">
+        Defina uma cotação simulada em memória para testar cenários cambiais. <strong>Nenhuma alteração</strong> será enviada para sobrescrever a célula <code>Metadados!B1</code> da planilha.
+      </p>
+
+      <div class="modal-info-card">
+        <div>
+          <span>Câmbio Oficial (Planilha):</span>
+          <strong id="dolar-modal-oficial" class="tabular-nums">R$ 5,00</strong>
+        </div>
+      </div>
+
+      <div class="modal-field">
+        <label for="dolar-modal-input">Câmbio Simulado (R$)</label>
+        <input id="dolar-modal-input" class="tabular-nums" type="number" step="0.01" min="0.1" placeholder="Ex: 5.75">
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" style="margin-right:auto;" onclick="resetOfficialDolar()">↺ Oficial</button>
+        <button type="button" class="btn" onclick="closeModal('modal-dolar')">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="applySimulatedDolar()">Aplicar Simulação</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POPOVER EXPLICATIVO GLOBAL DE KPIS -->
+  <div id="kpi-info-popover" class="kpi-popover" role="dialog" aria-hidden="true"></div>
+
+  <!-- TOAST FLUTUANTE -->
+  <div class="toast" id="toast">Operação realizada.</div>
+
+  <!-- MÓDULOS JAVASCRIPT -->
+  <script src="js/config.js"></script>
+  <script src="js/calculations.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
